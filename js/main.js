@@ -1,95 +1,117 @@
 document.addEventListener("DOMContentLoaded", function () {
-    const formulario = document.getElementById("formRegistro");
     const pasos = Array.from(document.querySelectorAll(".paso"));
     const botonesSiguiente = document.querySelectorAll(".btn-siguiente");
     const botonesAnterior = document.querySelectorAll(".btn-anterior");
     const progressBar = document.querySelector(".progress-bar");
     let pasoActual = 1;
 
-    // Función para actualizar la barra de progreso
-    function actualizarBarraDeProgreso(paso) {
-        const progreso = (paso - 1) / (pasos.length - 1) * 100;
+    // Actualiza la barra de progreso correctamente al inicio
+    function actualizarBarraDeProgreso() {
+        const progreso = ((pasoActual - 1) / (pasos.length - 1)) * 100;
         progressBar.style.width = `${progreso}%`;
     }
 
-    // Función para validar los campos requeridos
-    function validarCampos(paso) {
-        const inputs = paso.querySelectorAll("input, select");
-        return Array.from(inputs).every(input => input.value.trim() !== '');
-    }
-
-    // Función para mostrar el paso actual
-    function mostrarPaso(paso) {
-        pasos.forEach((p, index) => {
-            p.style.display = index + 1 === paso ? "block" : "none";
-        });
-        pasoActual = paso;
-        actualizarBarraDeProgreso(paso);
-    }
-
-    // Función para avanzar al siguiente paso
-    function siguientePaso() {
+    // Validar campos requeridos del paso actual
+    function validarCamposPaso() {
         const paso = pasos[pasoActual - 1];
-        if (validarCampos(paso)) {
-            mostrarPaso(pasoActual + 1);
-        } else {
-            alert("Por favor, complete todos los campos antes de continuar.");
+        const inputs = paso.querySelectorAll("input[required], select[required]");
+        for (let input of inputs) {
+            if (!input.value) {
+                alert("Todos los campos son requeridos.");
+                return false;
+            }
+            if (input.type === "email" && !validarEmail(input.value)) {
+                alert("Por favor, ingrese un correo electrónico válido.");
+                return false;
+            }
         }
+        return true;
     }
 
-    // Función para regresar al paso anterior
-    function pasoAnterior() {
-        mostrarPaso(pasoActual - 1);
+    // Validar el formato del email
+    function validarEmail(email) {
+        const re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return re.test(email);
     }
 
-    // Función para calcular y mostrar el presupuesto
-    function calcularPresupuesto() {
-        // Aquí se puede añadir la lógica para calcular el presupuesto
-        // Por ejemplo, variar el precio según el servicio y la urgencia
-        const servicio = document.getElementById('servicio').value;
-        const urgencia = document.querySelector('input[name="urgencia"]:checked').value;
-        let presupuesto = 50; // Presupuesto base
-
-        // Aumentar el presupuesto según el servicio seleccionado
-        if (servicio === 'completo') {
-            presupuesto += 50;
-        } else if (servicio === 'premium') {
-            presupuesto += 100;
-        }
-
-        // Aumentar el presupuesto si la urgencia es alta
-        if (urgencia === 'urgente') {
-            presupuesto *= 1.2; // Aumenta en un 20%
-        }
-
-        alert(`El presupuesto estimado es: ${presupuesto}€`);
+    // Navegación del formulario
+    function mostrarPaso(paso) {
+        pasos.forEach((paso, index) => {
+            paso.style.display = index + 1 === pasoActual ? "block" : "none";
+        });
+        actualizarBarraDeProgreso();
     }
 
-    // Eventos para botones "Siguiente" y "Anterior"
-    botonesSiguiente.forEach((boton, index) => {
-        boton.addEventListener("click", function(event) {
-            event.preventDefault();
-            if (index === botonesSiguiente.length - 1) {
+    function siguientePaso(event) {
+        event.preventDefault();
+        if (validarCamposPaso()) {
+            if (pasoActual === pasos.length) {
                 calcularPresupuesto();
             } else {
-                siguientePaso();
+                pasoActual++;
+                mostrarPaso(pasoActual);
+                actualizarBotonFinalizar();
+            }
+        }
+    }
+
+    function actualizarBotonFinalizar() {
+        const ultimoBotonSiguiente = botonesSiguiente[botonesSiguiente.length - 1];
+        if (pasoActual === pasos.length) {
+            ultimoBotonSiguiente.textContent = "Finalizar";
+            ultimoBotonSiguiente.removeEventListener("click", siguientePaso);
+            ultimoBotonSiguiente.addEventListener("click", calcularPresupuesto);
+        } else {
+            ultimoBotonSiguiente.textContent = "Siguiente";
+            ultimoBotonSiguiente.removeEventListener("click", calcularPresupuesto);
+            ultimoBotonSiguiente.addEventListener("click", siguientePaso);
+        }
+    }
+
+    botonesSiguiente.forEach(boton => {
+        boton.addEventListener("click", siguientePaso);
+    });
+
+    botonesAnterior.forEach(boton => {
+        boton.addEventListener("click", function (event) {
+            event.preventDefault();
+            if (pasoActual > 1) {
+                pasoActual--;
+                mostrarPaso(pasoActual);
+                actualizarBotonFinalizar();
             }
         });
     });
 
-    botonesAnterior.forEach((boton) => {
-        boton.addEventListener("click", function(event) {
-            event.preventDefault();
-            pasoAnterior();
-        });
-    });
+    // Calcular y mostrar el presupuesto
+    function calcularPresupuesto() {
+        // Costos base para cada tipo de servicio
+        const costosServicios = {
+            basico: 100,
+            avanzado: 200,
+            'e-commerce': 300
+        };
 
-    // Prevenir el comportamiento por defecto del formulario
-    formulario.addEventListener("submit", function(event) {
-        event.preventDefault();
-        calcularPresupuesto();
-    });
+        // Obtener el valor del servicio seleccionado por el usuario
+        const servicioSeleccionado = document.getElementById('servicio').value;
 
-    // Inicializar mostrando el primer paso
+        // Obtener la urgencia seleccionada por el usuario
+        const urgenciaSeleccionada = document.querySelector('input[name="urgencia"]:checked').value;
+
+        // Calcular el costo base según el servicio seleccionado
+        let costoBase = costosServicios[servicioSeleccionado];
+
+        // Modificar el costo base según la urgencia
+        if (urgenciaSeleccionada === 'urgente') {
+            costoBase *= 1.2;
+        }
+
+        // Mostrar el presupuesto estimado
+        alert(`El presupuesto estimado es: ${costoBase}€.`);
+    }
+
+    // Inicializar el formulario mostrando el primer paso
     mostrarPaso(pasoActual);
+    actualizarBotonFinalizar(); // Asegurar que el botón se inicializa correctamente
 });
+
